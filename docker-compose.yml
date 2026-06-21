@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    container_name: consultor-backend
+    environment:
+      # En producción el frontend llama a /api en el mismo origen (vía Nginx),
+      # por lo que CORS no es necesario. Ajusta si expones el backend aparte.
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      OPENDOAR_API_KEY: ${OPENDOAR_API_KEY:-}
+    volumes:
+      - downloads:/app/downloads
+    restart: unless-stopped
+    networks:
+      - consultor
+
+  frontend:
+    build: ./frontend
+    container_name: consultor-frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - consultor
+
+volumes:
+  downloads:
+
+networks:
+  consultor:
+    driver: bridge

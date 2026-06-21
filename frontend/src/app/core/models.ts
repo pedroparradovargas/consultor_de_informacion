@@ -73,3 +73,28 @@ export interface DownloadResponse {
   results: DownloadResultItem[];
   download_dir: string;
 }
+
+export interface DownloadJobCreated {
+  job_id: string;
+  total: number;
+}
+
+export interface RepositoryInfo {
+  name: string;
+  country: string | null;
+  oai_base_url: string;
+  homepage: string | null;
+  verified: boolean;
+}
+
+/** Evento de progreso recibido por SSE durante una descarga. */
+export interface DownloadProgressEvent {
+  event: 'start' | 'progress' | 'done';
+  total: number;
+  job_id?: string;
+  completed?: number;
+  downloaded?: number;
+  status?: DownloadStatus;
+  url?: string;
+  reason?: string | null;
+}

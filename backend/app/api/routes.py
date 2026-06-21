@@ -2,29 +2,36 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
 from app.core.security import rate_limit
 from app.models.schemas import (
+    DownloadJobCreated,
     DownloadRequest,
     DownloadResponse,
     DownloadStatus,
     HarvestRequest,
     HarvestResponse,
+    RepositoryInfo,
     SearchQuery,
     SearchResponse,
     SourceName,
 )
 from app.services.aggregator import SearchAggregator
+from app.services.discovery import DiscoveryService
 from app.services.downloader import Downloader
 from app.services.harvester import OaiPmhHarvester
+from app.services.jobs import job_manager
 
 router = APIRouter()
 _aggregator = SearchAggregator()
 _harvester = OaiPmhHarvester()
+_discovery = DiscoveryService()
 
 
 @router.get("/health", tags=["sistema"], summary="Estado del servicio")
@@ -115,4 +122,58 @@ async def download(request: DownloadRequest) -> DownloadResponse:
         downloaded=downloaded,
         results=results,
         download_dir=settings.download_dir,
+    )
+
+
+@router.get(
+    "/repositories",
+    response_model=list[RepositoryInfo],
+    tags=["repositorios"],
+    summary="Descubrir repositorios de acceso abierto (OAI-PMH)",
+)
+async def repositories(q: str | None = None, country: str | None = None) -> list[RepositoryInfo]:
+    """Busca repositorios por nombre o país y devuelve su endpoint OAI-PMH."""
+    return await _discovery.search(query=q, country=country)
+
+
+@router.post(
+    "/download/jobs",
+    response_model=DownloadJobCreated,
+    tags=["repositorios"],
+    summary="Crear un trabajo de descarga en segundo plano",
+    dependencies=[Depends(rate_limit)],
+)
+async def create_download_job(request: DownloadRequest) -> DownloadJobCreated:
+    """Encola la descarga y devuelve un job_id para seguir su progreso (SSE)."""
+    settings = get_settings()
+    if len(request.urls) > settings.max_download_urls:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Máximo {settings.max_download_urls} URLs por petición.",
+        )
+    job = job_manager.create([str(u) for u in request.urls])
+    return DownloadJobCreated(job_id=job.id, total=job.total)
+
+
+@router.get(
+    "/download/jobs/{job_id}/events",
+    tags=["repositorios"],
+    summary="Stream de progreso de un trabajo de descarga (SSE)",
+)
+async def download_job_events(job_id: str) -> StreamingResponse:
+    """Transmite el progreso del trabajo como Server-Sent Events."""
+    job = job_manager.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Trabajo no encontrado."
+        )
+
+    async def event_stream():
+        async for event in job_manager.stream(job):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

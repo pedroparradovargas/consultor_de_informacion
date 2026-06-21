@@ -48,7 +48,19 @@ standalone) + FastAPI (mejor ecosistema Python para OSINT/scraping).
 
 ## 🚀 Puesta en marcha
 
-### 1. Backend (FastAPI)
+### Opción A — Docker Compose (un solo comando)
+
+```bash
+docker compose up --build
+# Frontend: http://localhost:8080   ·   API vía /api (proxy Nginx)
+```
+
+Nginx sirve la SPA y hace de proxy al backend (incluido el stream SSE de
+progreso). Los PDFs descargados se guardan en el volumen `downloads`.
+
+### Opción B — Desarrollo local
+
+#### 1. Backend (FastAPI)
 
 ```bash
 cd backend
@@ -59,7 +71,7 @@ cp .env.example .env               # opcional: configura CONTACT_EMAIL
 uvicorn app.main:app --reload      # http://localhost:8000  (docs en /docs)
 ```
 
-### 2. Frontend (Angular)
+#### 2. Frontend (Angular)
 
 ```bash
 cd frontend
@@ -71,13 +83,16 @@ El frontend en modo desarrollo apunta a `http://localhost:8000/api`.
 
 ## 🔌 API
 
-| Método | Ruta            | Descripción                                       |
-| ------ | --------------- | ------------------------------------------------- |
-| `GET`  | `/api/health`   | Estado del servicio                               |
-| `GET`  | `/api/sources`  | Fuentes disponibles                               |
-| `POST` | `/api/search`   | Búsqueda agregada de recursos                     |
-| `POST` | `/api/harvest`  | Cosecha de un repositorio universitario (OAI-PMH) |
-| `POST` | `/api/download` | Descarga responsable de PDFs de acceso abierto    |
+| Método | Ruta                                  | Descripción                                         |
+| ------ | ------------------------------------- | --------------------------------------------------- |
+| `GET`  | `/api/health`                         | Estado del servicio                                 |
+| `GET`  | `/api/sources`                        | Fuentes disponibles                                 |
+| `GET`  | `/api/repositories`                   | Descubrir repositorios OAI-PMH (`?q=&country=`)     |
+| `POST` | `/api/search`                         | Búsqueda agregada de recursos                       |
+| `POST` | `/api/harvest`                        | Cosecha de un repositorio universitario (OAI-PMH)   |
+| `POST` | `/api/download`                       | Descarga responsable de PDFs (síncrona)             |
+| `POST` | `/api/download/jobs`                  | Crear un trabajo de descarga en segundo plano       |
+| `GET`  | `/api/download/jobs/{id}/events`      | Progreso del trabajo en vivo (Server-Sent Events)   |
 
 Ejemplo de cuerpo para `POST /api/search`:
 
@@ -95,9 +110,10 @@ Ejemplo de cuerpo para `POST /api/search`:
 
 ## 📥 Cosecha y descarga de repositorios (OAI-PMH)
 
-La pestaña **Repositorios** permite cosechar metadatos de un repositorio
-universitario mediante **OAI-PMH** (el protocolo estándar de DSpace/EPrints) y
-descargar únicamente los **PDFs de acceso abierto**, de forma responsable:
+La pestaña **Repositorios** permite **descubrir** repositorios (por nombre o
+país), cosechar sus metadatos mediante **OAI-PMH** (el protocolo estándar de
+DSpace/EPrints) y descargar únicamente los **PDFs de acceso abierto**, de forma
+responsable y con **progreso en vivo** (barra de avance vía SSE):
 
 - ✅ Respeto de `robots.txt`.
 - ✅ **Rate limiting por dominio** (no se satura el servidor ajeno).
@@ -127,16 +143,17 @@ descargar únicamente los **PDFs de acceso abierto**, de forma responsable:
 
 ## 🧭 Mejoras propuestas (roadmap)
 
-Lo que recomiendo añadir para llevarlo a producción:
+Ya implementado: ✅ múltiples fuentes (OpenAlex, arXiv, OAI-PMH) · ✅ descubrimiento
+de repositorios · ✅ cola de descargas con progreso en vivo (SSE) · ✅ Docker Compose.
 
-1. **Más fuentes**: DOAJ, CORE, BASE, Semantic Scholar, Zenodo, Internet Archive
-   y buscadores de repositorios universitarios (DSpace / OAI-PMH).
+Pendiente para producción:
+
+1. **Más fuentes**: DOAJ, CORE, BASE, Semantic Scholar, Internet Archive.
 2. **Scraper de sitios `.edu`** con respeto a `robots.txt` y Playwright para
    páginas dinámicas, como complemento opcional.
-3. **Caché** (Redis) de búsquedas y **cola de descargas** asíncrona.
+3. **Caché** (Redis) de búsquedas y persistencia de trabajos de descarga.
 4. **Autenticación** (JWT/OAuth) e historial de búsquedas por usuario.
 5. **Exportación** de resultados a CSV/BibTeX y guardado en colecciones.
 6. **Vista previa** del PDF y extracción de texto/temario con IA.
 7. **Internacionalización** (i18n) de la interfaz.
 8. **Tests** (pytest + Vitest/Karma) y **CI/CD** con GitHub Actions.
-9. **Contenedores** Docker + `docker-compose` para un despliegue de un comando.

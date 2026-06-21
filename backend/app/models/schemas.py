@@ -197,3 +197,23 @@ class DownloadResponse(BaseModel):
     downloaded: int
     results: list[DownloadResultItem]
     download_dir: str
+
+
+class DownloadJobCreated(BaseModel):
+    """Confirmación de creación de un trabajo de descarga en segundo plano."""
+
+    job_id: str
+    total: int
+
+
+class RepositoryInfo(BaseModel):
+    """Repositorio de acceso abierto con su endpoint OAI-PMH."""
+
+    name: str
+    country: str | None = None
+    oai_base_url: str
+    homepage: str | None = None
+    verified: bool = Field(
+        default=False,
+        description="Si el endpoint OAI-PMH ha sido verificado manualmente.",
+    )

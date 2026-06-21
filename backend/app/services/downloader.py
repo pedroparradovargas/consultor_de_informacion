@@ -17,6 +17,7 @@ import hashlib
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -31,6 +32,9 @@ logger = logging.getLogger(__name__)
 
 _PDF_MAGIC = b"%PDF-"
 _FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+# Callback opcional invocado cada vez que termina la descarga de una URL.
+ProgressCallback = Callable[[DownloadResultItem], Awaitable[None]]
 
 
 class DomainRateLimiter:
@@ -61,7 +65,9 @@ class Downloader:
         self._semaphore = asyncio.Semaphore(self._settings.download_concurrency)
         self._max_bytes = self._settings.max_download_mb * 1024 * 1024
 
-    async def download_many(self, urls: list[str]) -> list[DownloadResultItem]:
+    async def download_many(
+        self, urls: list[str], on_result: ProgressCallback | None = None
+    ) -> list[DownloadResultItem]:
         dest = Path(self._settings.download_dir)
         dest.mkdir(parents=True, exist_ok=True)
 
@@ -71,10 +77,24 @@ class Downloader:
             headers={"User-Agent": self._settings.http_user_agent},
             follow_redirects=False,  # validamos cada salto manualmente (anti-SSRF)
         ) as client:
-            tasks = [self._download_one(client, url, dest) for url in urls]
+            tasks = [
+                self._download_one(client, url, dest, on_result) for url in urls
+            ]
             return await asyncio.gather(*tasks)
 
     async def _download_one(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        dest: Path,
+        on_result: ProgressCallback | None = None,
+    ) -> DownloadResultItem:
+        result = await self._run(client, url, dest)
+        if on_result is not None:
+            await on_result(result)
+        return result
+
+    async def _run(
         self, client: httpx.AsyncClient, url: str, dest: Path
     ) -> DownloadResultItem:
         async with self._semaphore:

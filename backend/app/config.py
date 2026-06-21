@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Correo de contacto para los servicios "polite pool" (ej. OpenAlex).
     contact_email: str | None = None
 
+    # Clave de API de OpenDOAR (Sherpa) para descubrir repositorios (opcional).
+    opendoar_api_key: str | None = None
+
     # --- CORS ---
     # Orígenes permitidos para el frontend (Angular dev server por defecto).
     cors_origins: list[str] = [

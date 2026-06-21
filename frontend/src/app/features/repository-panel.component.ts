@@ -3,11 +3,18 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import {
-  DownloadResponse,
+  DownloadProgressEvent,
   HarvestResponse,
+  RepositoryInfo,
   ResourceItem,
 } from '../core/models';
 import { SearchService } from '../core/search.service';
+
+interface DownloadProgress {
+  completed: number;
+  total: number;
+  done: boolean;
+}
 
 /** Panel de cosecha OAI-PMH y descarga responsable de PDFs abiertos. */
 @Component({
@@ -27,7 +34,11 @@ export class RepositoryPanelComponent {
   readonly downloading = signal(false);
   readonly error = signal<string | null>(null);
   readonly harvest = signal<HarvestResponse | null>(null);
-  readonly downloadResult = signal<DownloadResponse | null>(null);
+  readonly progress = signal<DownloadProgress | null>(null);
+
+  // --- Descubrimiento de repositorios ---
+  readonly discovering = signal(false);
+  readonly repos = signal<RepositoryInfo[]>([]);
 
   /** URLs de descarga seleccionadas por el usuario. */
   readonly selected = signal<Set<string>>(new Set());
@@ -35,6 +46,11 @@ export class RepositoryPanelComponent {
   readonly downloadable = computed<ResourceItem[]>(() =>
     (this.harvest()?.results ?? []).filter((r) => !!r.download_url),
   );
+
+  readonly discoverForm: FormGroup = this.fb.group({
+    q: this.fb.control('', { nonNullable: true }),
+    country: this.fb.control('', { nonNullable: true }),
+  });
 
   readonly form: FormGroup = this.fb.group({
     baseUrl: this.fb.control('', {
@@ -48,6 +64,24 @@ export class RepositoryPanelComponent {
     onlyOpenAccess: this.fb.control(true, { nonNullable: true }),
     maxRecords: this.fb.control(50, { nonNullable: true }),
   });
+
+  discover(): void {
+    const { q, country } = this.discoverForm.getRawValue();
+    this.discovering.set(true);
+    this.error.set(null);
+    this.service
+      .discoverRepositories(q || undefined, country || undefined)
+      .pipe(finalize(() => this.discovering.set(false)))
+      .subscribe({
+        next: (repos) => this.repos.set(repos),
+        error: () => this.error.set('No se pudieron descubrir repositorios.'),
+      });
+  }
+
+  pickRepo(repo: RepositoryInfo): void {
+    this.form.controls['baseUrl'].setValue(repo.oai_base_url);
+    this.repos.set([]);
+  }
 
   isSelected(url: string): boolean {
     return this.selected().has(url);
@@ -77,7 +111,7 @@ export class RepositoryPanelComponent {
     this.error.set(null);
     this.harvesting.set(true);
     this.harvest.set(null);
-    this.downloadResult.set(null);
+    this.progress.set(null);
     this.clearSelection();
 
     this.service
@@ -106,14 +140,32 @@ export class RepositoryPanelComponent {
     }
     this.error.set(null);
     this.downloading.set(true);
-    this.downloadResult.set(null);
+    this.progress.set({ completed: 0, total: urls.length, done: false });
 
-    this.service
-      .download(urls)
-      .pipe(finalize(() => this.downloading.set(false)))
-      .subscribe({
-        next: (res) => this.downloadResult.set(res),
-        error: () => this.error.set('La descarga falló. Revisa el backend.'),
-      });
+    this.service.createDownloadJob(urls).subscribe({
+      next: (job) => this.listenProgress(job.job_id, job.total),
+      error: () => {
+        this.downloading.set(false);
+        this.error.set('No se pudo crear el trabajo de descarga.');
+      },
+    });
+  }
+
+  private listenProgress(jobId: string, total: number): void {
+    this.service.streamDownload(jobId).subscribe({
+      next: (e: DownloadProgressEvent) => {
+        if (e.event === 'progress') {
+          this.progress.set({ completed: e.completed ?? 0, total, done: false });
+        } else if (e.event === 'done') {
+          this.progress.set({ completed: e.downloaded ?? 0, total, done: true });
+          this.downloading.set(false);
+        }
+      },
+      error: () => {
+        this.downloading.set(false);
+        this.error.set('Se perdió la conexión con el progreso de descarga.');
+      },
+      complete: () => this.downloading.set(false),
+    });
   }
 }

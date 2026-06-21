@@ -198,3 +198,85 @@
 .rrow__link:hover {
   background: rgba(0, 240, 255, 0.12);
 }
+
+/* ---- Descubrimiento ---- */
+.repo__discover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-panel);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+}
+.repo__discover-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.repo__discover-row .rfield__input {
+  flex: 1;
+  min-width: 140px;
+}
+.repo__catalog {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.repo__catalog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.repo__catalog-item:hover {
+  border-color: var(--stroke-strong);
+  background: rgba(0, 240, 255, 0.08);
+}
+.repo__catalog-name {
+  color: var(--text);
+  font-weight: 600;
+}
+.repo__verified {
+  color: var(--neon-lime);
+}
+.repo__catalog-meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* ---- Barra de progreso ---- */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.5rem 0;
+}
+.progress__bar {
+  flex: 1;
+  height: 10px;
+  background: rgba(3, 6, 18, 0.85);
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+  box-shadow: var(--glow-cyan);
+  transition: width 0.3s ease;
+}
+.progress__label {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--neon-cyan);
+  white-space: nowrap;
+}

@@ -1,4 +1,29 @@
 <div class="repo">
+  <!-- Descubrimiento de repositorios -->
+  <form class="repo__discover" [formGroup]="discoverForm" (ngSubmit)="discover()">
+    <span class="rfield__label">Descubrir repositorios</span>
+    <div class="repo__discover-row">
+      <input class="rfield__input" type="text" formControlName="q" placeholder="Nombre (ej. Nacional)" />
+      <input class="rfield__input" type="text" formControlName="country" placeholder="País (ej. Colombia)" />
+      <button class="rbtn" type="submit" [disabled]="discovering()">
+        {{ discovering() ? 'Buscando…' : '🔭 Descubrir' }}
+      </button>
+    </div>
+    @if (repos().length) {
+      <ul class="repo__catalog">
+        @for (repo of repos(); track repo.oai_base_url) {
+          <li class="repo__catalog-item" (click)="pickRepo(repo)">
+            <span class="repo__catalog-name">
+              {{ repo.name }}
+              @if (repo.verified) { <span class="repo__verified" title="Endpoint verificado">✓</span> }
+            </span>
+            <span class="repo__catalog-meta">{{ repo.country }} · {{ repo.oai_base_url }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </form>
+
   <form class="repo__form" [formGroup]="form" (ngSubmit)="runHarvest()">
     <p class="repo__hint">
       Cosecha legal de repositorios universitarios vía <strong>OAI-PMH</strong>
@@ -75,10 +100,22 @@
         <p class="ralert ralert--warn">⚠ {{ w }}</p>
       }
 
-      @if (downloadResult(); as d) {
-        <p class="ralert ralert--ok">
-          ✓ {{ d.downloaded }}/{{ d.total }} descargados en <code>{{ d.download_dir }}/</code>
-        </p>
+      @if (progress(); as p) {
+        <div class="progress">
+          <div class="progress__bar">
+            <div
+              class="progress__fill"
+              [style.width.%]="p.total ? (p.completed / p.total) * 100 : 0"
+            ></div>
+          </div>
+          <span class="progress__label">
+            @if (p.done) {
+              ✓ {{ p.completed }}/{{ p.total }} descargados
+            } @else {
+              ⤓ {{ p.completed }}/{{ p.total }} en curso…
+            }
+          </span>
+        </div>
       }
 
       <ul class="rlist">
