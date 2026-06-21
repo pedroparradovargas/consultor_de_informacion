@@ -28,6 +28,7 @@ class SourceName(str, enum.Enum):
 
     OPENALEX = "openalex"
     ARXIV = "arxiv"
+    OAI = "oai"  # repositorios universitarios vía OAI-PMH
 
 
 class SearchQuery(BaseModel):
@@ -126,3 +127,73 @@ class SearchResponse(BaseModel):
     took_ms: int
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     warnings: list[str] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------
+#  Cosecha OAI-PMH y descarga de PDFs de repositorios abiertos
+# --------------------------------------------------------------------------
+
+
+class HarvestRequest(BaseModel):
+    """Parámetros para cosechar metadatos de un repositorio vía OAI-PMH."""
+
+    base_url: str = Field(
+        ...,
+        description="Endpoint OAI-PMH del repositorio (ej. https://repo.uni.edu/oai/request).",
+        examples=["https://repositorio.unal.edu.co/oai/request"],
+    )
+    set_spec: str | None = Field(
+        default=None, description="Colección/set OAI-PMH a cosechar (opcional)."
+    )
+    year_from: int | None = Field(default=None, ge=1900, le=2100)
+    year_to: int | None = Field(default=None, ge=1900, le=2100)
+    language: str | None = Field(default=None, min_length=2, max_length=5)
+    only_open_access: bool = Field(
+        default=True,
+        description="Cosechar únicamente registros marcados como acceso abierto.",
+    )
+    max_records: int = Field(default=100, ge=1, le=500)
+
+
+class HarvestResponse(BaseModel):
+    """Resultado de una cosecha OAI-PMH."""
+
+    base_url: str
+    total: int
+    results: list[ResourceItem]
+    took_ms: int
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DownloadStatus(str, enum.Enum):
+    """Estado de la descarga de un recurso."""
+
+    DOWNLOADED = "downloaded"
+    SKIPPED = "skipped"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+
+
+class DownloadRequest(BaseModel):
+    """Solicitud de descarga de PDFs de acceso abierto."""
+
+    urls: list[str] = Field(..., min_length=1, description="URLs de PDFs a descargar.")
+
+
+class DownloadResultItem(BaseModel):
+    """Resultado de descargar una URL."""
+
+    url: str
+    status: DownloadStatus
+    reason: str | None = None
+    path: str | None = None
+    size_bytes: int | None = None
+
+
+class DownloadResponse(BaseModel):
+    """Resultado de un lote de descargas."""
+
+    total: int
+    downloaded: int
+    results: list[DownloadResultItem]
+    download_dir: str

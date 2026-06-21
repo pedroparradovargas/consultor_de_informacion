@@ -1,0 +1,112 @@
+<div class="repo">
+  <form class="repo__form" [formGroup]="form" (ngSubmit)="runHarvest()">
+    <p class="repo__hint">
+      Cosecha legal de repositorios universitarios vía <strong>OAI-PMH</strong>
+      (DSpace, EPrints…). Solo se descargan PDFs de <span class="oa">acceso abierto</span>,
+      respetando <code>robots.txt</code> y con límite de velocidad.
+    </p>
+
+    <label class="rfield rfield--full">
+      <span class="rfield__label">Endpoint OAI-PMH del repositorio</span>
+      <input
+        class="rfield__input"
+        type="url"
+        formControlName="baseUrl"
+        placeholder="https://repositorio.universidad.edu/oai/request"
+        autocomplete="off"
+      />
+    </label>
+
+    <div class="rgrid">
+      <label class="rfield">
+        <span class="rfield__label">Set / colección (opcional)</span>
+        <input class="rfield__input" type="text" formControlName="setSpec" placeholder="col_123" />
+      </label>
+      <label class="rfield">
+        <span class="rfield__label">Idioma</span>
+        <input class="rfield__input" type="text" formControlName="language" placeholder="es" maxlength="5" />
+      </label>
+      <label class="rfield">
+        <span class="rfield__label">Año desde</span>
+        <input class="rfield__input" type="number" formControlName="yearFrom" [max]="currentYear" />
+      </label>
+      <label class="rfield">
+        <span class="rfield__label">Año hasta</span>
+        <input class="rfield__input" type="number" formControlName="yearTo" [max]="currentYear" />
+      </label>
+      <label class="rfield">
+        <span class="rfield__label">Máx. registros</span>
+        <input class="rfield__input" type="number" formControlName="maxRecords" min="1" max="500" />
+      </label>
+      <label class="rfield rfield--check">
+        <input type="checkbox" formControlName="onlyOpenAccess" />
+        <span>Solo acceso abierto</span>
+      </label>
+    </div>
+
+    <button class="rbtn rbtn--primary" type="submit" [disabled]="harvesting()">
+      {{ harvesting() ? 'Cosechando…' : '⟲ Cosechar repositorio' }}
+    </button>
+
+    @if (error()) {
+      <p class="ralert" role="alert">{{ error() }}</p>
+    }
+  </form>
+
+  @if (harvest(); as h) {
+    <div class="repo__results">
+      <div class="repo__bar">
+        <span class="repo__count">{{ h.total }} registros · {{ downloadable().length }} con PDF</span>
+        <div class="repo__bar-actions">
+          <button class="rbtn" type="button" (click)="selectAll()">Seleccionar todo</button>
+          <button class="rbtn" type="button" (click)="clearSelection()">Limpiar</button>
+          <button
+            class="rbtn rbtn--accent"
+            type="button"
+            (click)="runDownload()"
+            [disabled]="downloading() || selected().size === 0"
+          >
+            {{ downloading() ? 'Descargando…' : '⤓ Descargar (' + selected().size + ')' }}
+          </button>
+        </div>
+      </div>
+
+      @for (w of h.warnings; track w) {
+        <p class="ralert ralert--warn">⚠ {{ w }}</p>
+      }
+
+      @if (downloadResult(); as d) {
+        <p class="ralert ralert--ok">
+          ✓ {{ d.downloaded }}/{{ d.total }} descargados en <code>{{ d.download_dir }}/</code>
+        </p>
+      }
+
+      <ul class="rlist">
+        @for (item of h.results; track item.landing_url || item.title) {
+          <li class="rrow" [class.rrow--has-pdf]="!!item.download_url">
+            @if (item.download_url) {
+              <input
+                type="checkbox"
+                [checked]="isSelected(item.download_url)"
+                (change)="toggle(item.download_url)"
+              />
+            } @else {
+              <span class="rrow__nopdf" title="Sin PDF directo">—</span>
+            }
+            <div class="rrow__body">
+              <span class="rrow__title">{{ item.title }}</span>
+              <span class="rrow__meta">
+                @if (item.year) { {{ item.year }} · }
+                @if (item.open_access) { <span class="oa">acceso abierto</span> · }
+                {{ item.repository }}
+              </span>
+            </div>
+            @if (item.landing_url) {
+              <a class="rrow__link" [href]="item.landing_url" target="_blank" rel="noopener noreferrer">ver</a>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</div>

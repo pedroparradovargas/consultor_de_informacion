@@ -71,11 +71,13 @@ El frontend en modo desarrollo apunta a `http://localhost:8000/api`.
 
 ## 🔌 API
 
-| Método | Ruta           | Descripción                         |
-| ------ | -------------- | ----------------------------------- |
-| `GET`  | `/api/health`  | Estado del servicio                 |
-| `GET`  | `/api/sources` | Fuentes disponibles                 |
-| `POST` | `/api/search`  | Búsqueda agregada de recursos       |
+| Método | Ruta            | Descripción                                       |
+| ------ | --------------- | ------------------------------------------------- |
+| `GET`  | `/api/health`   | Estado del servicio                               |
+| `GET`  | `/api/sources`  | Fuentes disponibles                               |
+| `POST` | `/api/search`   | Búsqueda agregada de recursos                     |
+| `POST` | `/api/harvest`  | Cosecha de un repositorio universitario (OAI-PMH) |
+| `POST` | `/api/download` | Descarga responsable de PDFs de acceso abierto    |
 
 Ejemplo de cuerpo para `POST /api/search`:
 
@@ -90,6 +92,25 @@ Ejemplo de cuerpo para `POST /api/search`:
   "limit": 25
 }
 ```
+
+## 📥 Cosecha y descarga de repositorios (OAI-PMH)
+
+La pestaña **Repositorios** permite cosechar metadatos de un repositorio
+universitario mediante **OAI-PMH** (el protocolo estándar de DSpace/EPrints) y
+descargar únicamente los **PDFs de acceso abierto**, de forma responsable:
+
+- ✅ Respeto de `robots.txt`.
+- ✅ **Rate limiting por dominio** (no se satura el servidor ajeno).
+- ✅ **Concurrencia limitada** y reintentos con backoff exponencial.
+- ✅ **Protección SSRF**: se rechazan hosts que resuelven a IPs privadas,
+  loopback, link-local o de metadatos cloud, validando **cada salto de
+  redirección**.
+- ✅ Validación de tipo de contenido (solo PDF real, comprobando la cabecera
+  mágica `%PDF-`) y **tamaño máximo**.
+
+> **No** se descargan recursos privados, tras paywall o con control de acceso:
+> hacerlo sería infracción de copyright / acceso no autorizado. Esta herramienta
+> trabaja exclusivamente con material de **acceso abierto**.
 
 ## 🔒 Seguridad y uso responsable
 

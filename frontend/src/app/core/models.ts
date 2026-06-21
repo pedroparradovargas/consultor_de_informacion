@@ -36,3 +36,40 @@ export interface SearchResponse {
   generated_at: string;
   warnings: string[];
 }
+
+// ---- Cosecha OAI-PMH y descarga de repositorios ----
+
+export interface HarvestRequest {
+  base_url: string;
+  set_spec?: string | null;
+  year_from?: number | null;
+  year_to?: number | null;
+  language?: string | null;
+  only_open_access: boolean;
+  max_records: number;
+}
+
+export interface HarvestResponse {
+  base_url: string;
+  total: number;
+  results: ResourceItem[];
+  took_ms: number;
+  warnings: string[];
+}
+
+export type DownloadStatus = 'downloaded' | 'skipped' | 'blocked' | 'failed';
+
+export interface DownloadResultItem {
+  url: string;
+  status: DownloadStatus;
+  reason: string | null;
+  path: string | null;
+  size_bytes: number | null;
+}
+
+export interface DownloadResponse {
+  total: number;
+  downloaded: number;
+  results: DownloadResultItem[];
+  download_dir: string;
+}

@@ -12,6 +12,28 @@
   </p>
 </header>
 
+<nav class="tabs">
+  <button
+    class="tab"
+    [class.tab--active]="mode() === 'search'"
+    (click)="setMode('search')"
+  >
+    🔎 Búsqueda
+  </button>
+  <button
+    class="tab"
+    [class.tab--active]="mode() === 'repository'"
+    (click)="setMode('repository')"
+  >
+    🏛️ Repositorios (OAI-PMH)
+  </button>
+</nav>
+
+@if (mode() === 'repository') {
+  <div class="layout layout--single">
+    <app-repository-panel />
+  </div>
+} @else {
 <main class="layout">
   <!-- Panel de búsqueda -->
   <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
@@ -141,6 +163,7 @@
     }
   </section>
 </main>
+}
 
 <footer class="footer">
   <span>Consultor de Información · datos de fuentes abiertas (OpenAlex · arXiv)</span>

@@ -10,7 +10,10 @@ import {
 import { finalize } from 'rxjs';
 import { FileType, ResourceItem, SearchResponse, SourceName } from './core/models';
 import { SearchService } from './core/search.service';
+import { RepositoryPanelComponent } from './features/repository-panel.component';
 import { ResultCardComponent } from './features/result-card.component';
+
+type AppMode = 'search' | 'repository';
 
 interface ToggleOption<T> {
   value: T;
@@ -20,7 +23,12 @@ interface ToggleOption<T> {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ResultCardComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ResultCardComponent,
+    RepositoryPanelComponent,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -30,6 +38,13 @@ export class AppComponent {
 
   /** Año actual para validar el rango del lapso. */
   readonly currentYear = new Date().getFullYear();
+
+  /** Modo activo de la interfaz. */
+  readonly mode = signal<AppMode>('search');
+
+  setMode(mode: AppMode): void {
+    this.mode.set(mode);
+  }
 
   readonly fileTypeOptions: ToggleOption<FileType>[] = [
     { value: 'any', label: 'Todos' },

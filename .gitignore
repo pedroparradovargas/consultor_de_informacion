@@ -1,5 +1,7 @@
 # ---- Python / Backend ----
 backend/.venv/
+backend/downloads/
+downloads/
 __pycache__/
 *.py[cod]
 *.egg-info/

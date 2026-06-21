@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     max_results_per_query: int = 100
     max_query_length: int = 256
 
+    # --- Descargas / cosecha (scraping responsable) ---
+    download_dir: str = "downloads"
+    download_concurrency: int = 5  # descargas simultáneas (global)
+    per_domain_delay_seconds: float = 1.0  # espera mínima entre hits al mismo host
+    max_download_mb: int = 50  # tamaño máximo por archivo
+    max_download_urls: int = 50  # URLs por petición
+    download_retries: int = 3  # reintentos con backoff exponencial
+    respect_robots: bool = True  # respetar robots.txt (recomendado)
+    max_harvest_records: int = 200  # tope de registros por cosecha OAI-PMH
+
 
 @lru_cache
 def get_settings() -> Settings:
