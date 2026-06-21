@@ -65,6 +65,11 @@ class Downloader:
         self._semaphore = asyncio.Semaphore(self._settings.download_concurrency)
         self._max_bytes = self._settings.max_download_mb * 1024 * 1024
 
+    @property
+    def download_dir(self) -> str:
+        """Ruta absoluta donde se guardan los archivos descargados."""
+        return str(Path(self._settings.download_dir).resolve())
+
     async def download_many(
         self, urls: list[str], on_result: ProgressCallback | None = None
     ) -> list[DownloadResultItem]:
@@ -172,13 +177,16 @@ class Downloader:
             )
 
         content_type = response.headers.get("content-type", "").lower()
-        if "application/pdf" not in content_type and not final_url.lower().endswith(
-            ".pdf"
-        ):
+        # Sólo descartamos de entrada las páginas HTML (landing pages). Para
+        # cualquier otro content-type seguimos adelante y dejamos que la
+        # cabecera mágica %PDF- decida: muchos servidores sirven PDFs como
+        # application/octet-stream o sin content-type correcto.
+        is_html = "text/html" in content_type or "application/xhtml" in content_type
+        if is_html and not final_url.lower().endswith(".pdf"):
             return self._result(
                 original_url,
                 DownloadStatus.SKIPPED,
-                reason=f"No es PDF (content-type: {content_type or 'desconocido'}).",
+                reason="El enlace abre una página web, no un PDF directo.",
             )
 
         target = dest / self._filename_for(final_url)

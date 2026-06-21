@@ -44,6 +44,11 @@ async def list_sources() -> list[dict[str, str]]:
     return [
         {"id": SourceName.OPENALEX.value, "name": "OpenAlex", "type": "API abierta"},
         {"id": SourceName.ARXIV.value, "name": "arXiv", "type": "API abierta"},
+        {
+            "id": SourceName.INTERNET_ARCHIVE.value,
+            "name": "Internet Archive (libros)",
+            "type": "API abierta",
+        },
     ]
 
 
@@ -131,9 +136,15 @@ async def download(request: DownloadRequest) -> DownloadResponse:
     tags=["repositorios"],
     summary="Descubrir repositorios de acceso abierto (OAI-PMH)",
 )
-async def repositories(q: str | None = None, country: str | None = None) -> list[RepositoryInfo]:
-    """Busca repositorios por nombre o país y devuelve su endpoint OAI-PMH."""
-    return await _discovery.search(query=q, country=country)
+async def repositories(
+    q: str | None = None, country: str | None = None, verify: bool = True
+) -> list[RepositoryInfo]:
+    """Busca repositorios por nombre o país y devuelve su endpoint OAI-PMH.
+
+    Con `verify=true` (por defecto) comprueba cada endpoint en vivo y sólo
+    devuelve los que responden OAI-PMH, corrigiendo la ruta si hace falta.
+    """
+    return await _discovery.search(query=q, country=country, verify=verify)
 
 
 @router.post(

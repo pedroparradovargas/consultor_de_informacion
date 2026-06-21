@@ -8,7 +8,13 @@ import {
   Validators,
 } from '@angular/forms';
 import { finalize } from 'rxjs';
-import { FileType, ResourceItem, SearchResponse, SourceName } from './core/models';
+import {
+  DownloadProgressEvent,
+  FileType,
+  ResourceItem,
+  SearchResponse,
+  SourceName,
+} from './core/models';
 import { SearchService } from './core/search.service';
 import { RepositoryPanelComponent } from './features/repository-panel.component';
 import { ResultCardComponent } from './features/result-card.component';
@@ -18,6 +24,15 @@ type AppMode = 'search' | 'repository';
 interface ToggleOption<T> {
   value: T;
   label: string;
+}
+
+/** Estado de una descarga masiva en curso. */
+interface BulkDownload {
+  completed: number;
+  downloaded: number;
+  total: number;
+  done: boolean;
+  dir?: string;
 }
 
 @Component({
@@ -55,9 +70,12 @@ export class AppComponent {
   ];
 
   readonly sourceOptions: ToggleOption<SourceName>[] = [
+    { value: 'internet_archive', label: '📚 Libros (Internet Archive)' },
     { value: 'openalex', label: 'OpenAlex' },
     { value: 'arxiv', label: 'arXiv' },
   ];
+
+  readonly limitOptions = [25, 50, 100, 200];
 
   readonly languageOptions = [
     { value: '', label: 'Cualquiera' },
@@ -73,6 +91,15 @@ export class AppComponent {
   readonly response = signal<SearchResponse | null>(null);
   readonly results = computed<ResourceItem[]>(() => this.response()?.results ?? []);
 
+  /** Recursos con enlace de descarga directa (PDF). */
+  readonly downloadable = computed<ResourceItem[]>(() =>
+    this.results().filter((r) => !!r.download_url),
+  );
+
+  /** Estado de la descarga masiva ("descargar todos"). */
+  readonly bulk = signal<BulkDownload | null>(null);
+  readonly bulkRunning = signal(false);
+
   readonly form: FormGroup = this.fb.group({
     query: this.fb.control('', {
       validators: [Validators.required, Validators.minLength(2)],
@@ -82,7 +109,10 @@ export class AppComponent {
     yearTo: new FormControl<number | null>(null),
     language: this.fb.control('', { nonNullable: true }),
     fileTypes: this.fb.control<FileType[]>(['any'], { nonNullable: true }),
-    sources: this.fb.control<SourceName[]>(['openalex', 'arxiv'], { nonNullable: true }),
+    sources: this.fb.control<SourceName[]>(
+      ['internet_archive', 'openalex', 'arxiv'],
+      { nonNullable: true },
+    ),
     limit: this.fb.control(25, { nonNullable: true }),
   });
 
@@ -136,6 +166,8 @@ export class AppComponent {
     this.error.set(null);
     this.loading.set(true);
     this.response.set(null);
+    this.bulk.set(null);
+    this.bulkRunning.set(false);
 
     this.searchService
       .search({
@@ -145,7 +177,8 @@ export class AppComponent {
         language: raw.language || null,
         file_types: raw.fileTypes,
         sources: raw.sources,
-        limit: raw.limit,
+        limit: Number(raw.limit) || 25,
+        verify_links: true,
       })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
@@ -155,5 +188,59 @@ export class AppComponent {
             'No se pudo completar la búsqueda. Verifica que el backend esté activo.',
           ),
       });
+  }
+
+  /** Descarga directamente todos los PDFs de los resultados (job + progreso SSE). */
+  downloadAll(): void {
+    const urls = this.downloadable()
+      .map((r) => r.download_url!)
+      .filter((u, i, arr) => arr.indexOf(u) === i);
+    if (urls.length === 0) {
+      this.error.set('No hay libros con enlace de descarga directa.');
+      return;
+    }
+
+    this.error.set(null);
+    this.bulkRunning.set(true);
+    this.bulk.set({ completed: 0, downloaded: 0, total: urls.length, done: false });
+
+    this.searchService.createDownloadJob(urls).subscribe({
+      next: (job) => this.listenBulkProgress(job.job_id, job.total),
+      error: () => {
+        this.bulkRunning.set(false);
+        this.error.set('No se pudo iniciar la descarga masiva.');
+      },
+    });
+  }
+
+  private listenBulkProgress(jobId: string, total: number): void {
+    let downloaded = 0;
+    this.searchService.streamDownload(jobId).subscribe({
+      next: (e: DownloadProgressEvent) => {
+        if (e.event === 'progress') {
+          if (e.status === 'downloaded') downloaded += 1;
+          this.bulk.set({
+            completed: e.completed ?? 0,
+            downloaded,
+            total,
+            done: false,
+          });
+        } else if (e.event === 'done') {
+          this.bulk.set({
+            completed: total,
+            downloaded: e.downloaded ?? 0,
+            total,
+            done: true,
+            dir: e.download_dir,
+          });
+          this.bulkRunning.set(false);
+        }
+      },
+      error: () => {
+        this.bulkRunning.set(false);
+        this.error.set('Se perdió la conexión con el progreso de descarga.');
+      },
+      complete: () => this.bulkRunning.set(false),
+    });
   }
 }

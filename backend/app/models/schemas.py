@@ -28,6 +28,7 @@ class SourceName(str, enum.Enum):
 
     OPENALEX = "openalex"
     ARXIV = "arxiv"
+    INTERNET_ARCHIVE = "internet_archive"  # libros y manuales (archive.org)
     OAI = "oai"  # repositorios universitarios vía OAI-PMH
 
 
@@ -65,14 +66,25 @@ class SearchQuery(BaseModel):
         description="Tipos de archivo deseados.",
     )
     sources: list[SourceName] = Field(
-        default_factory=lambda: [SourceName.OPENALEX, SourceName.ARXIV],
+        default_factory=lambda: [
+            SourceName.OPENALEX,
+            SourceName.ARXIV,
+            SourceName.INTERNET_ARCHIVE,
+        ],
         description="Fuentes abiertas a consultar.",
     )
     limit: int = Field(
         default=25,
         ge=1,
-        le=100,
+        le=200,
         description="Número máximo de resultados.",
+    )
+    verify_links: bool = Field(
+        default=True,
+        description=(
+            "Verificar que los enlaces sigan vivos y descartar páginas que dan "
+            "404/410 o están en mantenimiento (5xx) antes de devolverlas."
+        ),
     )
 
     @field_validator("query")
@@ -151,6 +163,13 @@ class HarvestRequest(BaseModel):
     only_open_access: bool = Field(
         default=True,
         description="Cosechar únicamente registros marcados como acceso abierto.",
+    )
+    resolve_pdfs: bool = Field(
+        default=True,
+        description=(
+            "En repositorios DSpace 7+, localizar vía API REST el PDF descargable "
+            "de cada ítem (los metadatos OAI sólo traen la página del ítem)."
+        ),
     )
     max_records: int = Field(default=100, ge=1, le=500)
 

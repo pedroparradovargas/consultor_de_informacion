@@ -13,6 +13,7 @@ Los endpoints marcados con `verified=False` deben confirmarse antes de cosechar
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -20,6 +21,7 @@ import httpx
 from app.config import get_settings
 from app.core.security import build_http_client
 from app.models.schemas import RepositoryInfo
+from app.services.oai_resolver import resolve_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -40,46 +42,16 @@ SEED_CATALOG: list[RepositoryInfo] = [
         verified=True,
     ),
     RepositoryInfo(
-        name="SciELO",
-        country="Global / LATAM",
-        oai_base_url="https://www.scielo.org/oai/scielo-oai.php",
-        homepage="https://scielo.org",
-    ),
-    RepositoryInfo(
-        name="Universidad Nacional de Colombia",
-        country="Colombia",
-        oai_base_url="https://repositorio.unal.edu.co/oai/request",
-        homepage="https://repositorio.unal.edu.co",
-    ),
-    RepositoryInfo(
         name="Universidad de los Andes (Colombia)",
         country="Colombia",
-        oai_base_url="https://repositorio.uniandes.edu.co/oai/request",
+        oai_base_url="https://repositorio.uniandes.edu.co/server/oai/request",
         homepage="https://repositorio.uniandes.edu.co",
-    ),
-    RepositoryInfo(
-        name="Universidad de Chile",
-        country="Chile",
-        oai_base_url="https://repositorio.uchile.cl/oai/request",
-        homepage="https://repositorio.uchile.cl",
-    ),
-    RepositoryInfo(
-        name="Universidad de Buenos Aires (UBA)",
-        country="Argentina",
-        oai_base_url="https://repositoriouba.sisbi.uba.ar/oai/request",
-        homepage="https://repositoriouba.sisbi.uba.ar",
     ),
     RepositoryInfo(
         name="UNAM (México)",
         country="México",
-        oai_base_url="https://repositorio.unam.mx/oai/request",
+        oai_base_url="https://repositorio.unam.mx/oai",
         homepage="https://repositorio.unam.mx",
-    ),
-    RepositoryInfo(
-        name="Universidad Complutense de Madrid (E-Prints)",
-        country="España",
-        oai_base_url="https://eprints.ucm.es/cgi/oai2",
-        homepage="https://eprints.ucm.es",
     ),
     RepositoryInfo(
         name="MIT DSpace",
@@ -96,7 +68,10 @@ class DiscoveryService:
     """Busca repositorios por nombre o país."""
 
     async def search(
-        self, query: str | None = None, country: str | None = None
+        self,
+        query: str | None = None,
+        country: str | None = None,
+        verify: bool = True,
     ) -> list[RepositoryInfo]:
         results = self._filter(SEED_CATALOG, query, country)
 
@@ -106,7 +81,50 @@ class DiscoveryService:
                 results = self._merge(results, await self._opendoar(query, country))
             except httpx.HTTPError as exc:
                 logger.warning("OpenDOAR no disponible: %s", exc)
+
+        if verify:
+            results = await self._verify_live(results)
         return results
+
+    async def _verify_live(
+        self, repos: list[RepositoryInfo]
+    ) -> list[RepositoryInfo]:
+        """Comprueba cada endpoint en vivo y devuelve sólo los que responden OAI.
+
+        Además corrige la URL al endpoint que realmente funciona (p. ej. de
+        `/oai/request` a `/server/oai/request`) y los marca como verificados.
+        Si la comprobación falla por un fallo de red puntual, el repositorio se
+        descarta para no ofrecer endpoints muertos.
+        """
+        if not repos:
+            return repos
+
+        settings = get_settings()
+        semaphore = asyncio.Semaphore(8)
+        timeout = httpx.Timeout(12.0, connect=6.0)
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            headers={"User-Agent": settings.http_user_agent},
+            follow_redirects=True,
+            max_redirects=settings.http_max_redirects,
+        ) as client:
+
+            async def check(repo: RepositoryInfo) -> RepositoryInfo | None:
+                async with semaphore:
+                    try:
+                        resolved = await resolve_endpoint(client, repo.oai_base_url)
+                    except httpx.HTTPError:
+                        resolved = None
+                if resolved is None:
+                    logger.info("Descartado repo sin OAI vivo: %s", repo.name)
+                    return None
+                return repo.model_copy(
+                    update={"oai_base_url": resolved, "verified": True}
+                )
+
+            checked = await asyncio.gather(*(check(r) for r in repos))
+
+        return [r for r in checked if r is not None]
 
     @staticmethod
     def _filter(

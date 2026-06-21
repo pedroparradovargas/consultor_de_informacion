@@ -12,8 +12,10 @@ import logging
 
 from app.core.security import build_http_client
 from app.models.schemas import ResourceItem, SearchQuery, SourceName
+from app.services.link_checker import LinkChecker
 from app.services.sources.arxiv import ArxivSource
 from app.services.sources.base import BaseSource
+from app.services.sources.internet_archive import InternetArchiveSource
 from app.services.sources.openalex import OpenAlexSource
 
 logger = logging.getLogger(__name__)
@@ -23,11 +25,15 @@ logger = logging.getLogger(__name__)
 SOURCE_REGISTRY: dict[SourceName, type[BaseSource]] = {
     SourceName.OPENALEX: OpenAlexSource,
     SourceName.ARXIV: ArxivSource,
+    SourceName.INTERNET_ARCHIVE: InternetArchiveSource,
 }
 
 
 class SearchAggregator:
     """Ejecuta búsquedas en paralelo sobre múltiples fuentes."""
+
+    def __init__(self) -> None:
+        self._link_checker = LinkChecker()
 
     async def run(self, query: SearchQuery) -> tuple[list[ResourceItem], list[str]]:
         """Devuelve (resultados ordenados, advertencias)."""
@@ -51,7 +57,17 @@ class SearchAggregator:
 
         deduped = self._deduplicate(collected)
         ranked = self._rank(deduped)
-        return ranked[: query.limit], warnings
+        top = ranked[: query.limit]
+
+        if query.verify_links and top:
+            top, removed = await self._link_checker.filter_alive(top)
+            if removed:
+                warnings.append(
+                    f"Se descartaron {removed} recurso(s) con enlaces caídos "
+                    f"(404/410) o en mantenimiento."
+                )
+
+        return top, warnings
 
     @staticmethod
     def _deduplicate(items: list[ResourceItem]) -> list[ResourceItem]:

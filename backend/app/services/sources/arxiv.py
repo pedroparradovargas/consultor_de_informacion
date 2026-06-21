@@ -33,7 +33,7 @@ class ArxivSource(BaseSource):
         params = {
             "search_query": f"all:{query.query}",
             "start": "0",
-            "max_results": str(min(query.limit, 50)),
+            "max_results": str(min(query.limit, 100)),
             "sortBy": "relevance",
             "sortOrder": "descending",
         }

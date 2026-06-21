@@ -99,6 +99,7 @@ class JobManager:
                     "event": "done",
                     "total": job.total,
                     "downloaded": job.downloaded,
+                    "download_dir": downloader.download_dir,
                 }
             )
             await job.events.put(_SENTINEL)

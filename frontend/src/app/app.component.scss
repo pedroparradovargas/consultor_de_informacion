@@ -354,6 +354,69 @@
   color: var(--text-dim);
   font-size: 0.85rem;
 }
+
+/* Botón "Descargar todos" */
+.bulk-btn {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  color: #03121a;
+  padding: 0.5rem 0.9rem;
+  background: linear-gradient(110deg, var(--neon-lime), var(--neon-cyan));
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 0 14px rgba(170, 255, 0, 0.35);
+  transition: transform 0.15s, filter 0.2s;
+}
+.bulk-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+.bulk-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Barra de progreso de descarga masiva */
+.bulk {
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(0, 240, 255, 0.05);
+}
+.bulk--done {
+  border-color: rgba(170, 255, 0, 0.45);
+  background: rgba(170, 255, 0, 0.06);
+}
+.bulk__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.bulk__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet));
+  box-shadow: var(--glow-cyan);
+  transition: width 0.3s ease;
+}
+.bulk__label {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.bulk__label code {
+  color: var(--neon-cyan);
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+.bulk__hint {
+  color: var(--neon-lime);
+  font-size: 0.8rem;
+}
 .results__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

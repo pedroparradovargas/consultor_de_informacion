@@ -85,6 +85,14 @@
           }
         </select>
       </label>
+      <label class="field">
+        <span class="field__label">Nº de resultados</span>
+        <select class="field__input" formControlName="limit">
+          @for (n of limitOptions; track n) {
+            <option [value]="n">{{ n }}</option>
+          }
+        </select>
+      </label>
     </div>
 
     <div class="field">
@@ -138,7 +146,48 @@
       <div class="results__meta">
         <span class="results__count">{{ res.total }} resultados</span>
         <span class="results__time">{{ res.took_ms }} ms</span>
+        @if (downloadable().length > 0) {
+          <button
+            type="button"
+            class="bulk-btn"
+            [disabled]="bulkRunning()"
+            (click)="downloadAll()"
+          >
+            @if (bulkRunning()) {
+              <span class="submit__spinner" aria-hidden="true"></span> Descargando…
+            } @else {
+              ⤓ Descargar todos ({{ downloadable().length }})
+            }
+          </button>
+        }
       </div>
+
+      @if (bulk(); as b) {
+        <div class="bulk" [class.bulk--done]="b.done">
+          <div class="bulk__bar">
+            <div
+              class="bulk__fill"
+              [style.width.%]="b.total ? (b.completed / b.total) * 100 : 0"
+            ></div>
+          </div>
+          <p class="bulk__label">
+            @if (b.done) {
+              ✓ {{ b.downloaded }} de {{ b.total }} libro(s) descargado(s) en:
+              <code>{{ b.dir }}</code>
+              @if (b.downloaded === 0) {
+                <br /><span class="bulk__hint"
+                  >No se guardó ningún archivo: los enlaces no eran PDFs directos
+                  o el repositorio los sirve tras una página intermedia.</span
+                >
+              }
+            } @else {
+              Descargando libros… {{ b.completed }} / {{ b.total }}
+              ({{ b.downloaded }} guardado(s))
+            }
+          </p>
+        </div>
+      }
+
       @for (warning of res.warnings; track warning) {
         <p class="alert alert--warn">⚠ {{ warning }}</p>
       }

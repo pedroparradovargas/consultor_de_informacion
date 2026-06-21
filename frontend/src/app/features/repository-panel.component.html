@@ -37,7 +37,7 @@
         class="rfield__input"
         type="url"
         formControlName="baseUrl"
-        placeholder="https://repositorio.universidad.edu/oai/request"
+        placeholder="https://repositorio.universidad.edu/server/oai/request"
         autocomplete="off"
       />
     </label>
@@ -110,9 +110,14 @@
           </div>
           <span class="progress__label">
             @if (p.done) {
-              ✓ {{ p.completed }}/{{ p.total }} descargados
+              ✓ {{ p.downloaded }}/{{ p.total }} libro(s) descargado(s) en
+              <code>{{ p.dir }}</code>
+              @if (p.downloaded === 0) {
+                — no se guardó ningún PDF (los registros no exponían un enlace
+                directo a PDF).
+              }
             } @else {
-              ⤓ {{ p.completed }}/{{ p.total }} en curso…
+              ⤓ {{ p.completed }}/{{ p.total }} en curso… ({{ p.downloaded }} guardado(s))
             }
           </span>
         </div>

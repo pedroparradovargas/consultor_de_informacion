@@ -55,7 +55,7 @@ class OpenAlexSource(BaseSource):
 
         params: dict[str, str] = {
             "search": query.query,
-            "per-page": str(min(query.limit, 50)),
+            "per-page": str(min(query.limit, 200)),
             "filter": ",".join(filters),
         }
         settings = get_settings()

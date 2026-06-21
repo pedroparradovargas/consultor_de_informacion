@@ -8,6 +8,7 @@ indexar miles de manuales y cartillas abiertas a escala, sin scraping agresivo.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
@@ -22,6 +23,8 @@ from app.models.schemas import (
     ResourceItem,
     SourceName,
 )
+from app.services.dspace import DSpaceResolver
+from app.services.oai_resolver import candidate_endpoints, resolve_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +56,6 @@ class OaiPmhHarvester:
         repository = urlparse(request.base_url).netloc
 
         items: list[ResourceItem] = []
-        params: dict[str, str] = {"verb": "ListRecords", "metadataPrefix": "oai_dc"}
-        if request.set_spec:
-            params["set"] = request.set_spec
 
         timeout = httpx.Timeout(settings.http_timeout_seconds)
         async with httpx.AsyncClient(
@@ -64,9 +64,21 @@ class OaiPmhHarvester:
             follow_redirects=True,
             max_redirects=settings.http_max_redirects,
         ) as client:
+            # Resolver el endpoint OAI-PMH real (DSpace 7+ lo movió a /server/oai).
+            base_url = await self._resolve_endpoint(client, request.base_url, warnings)
+            if base_url is None:
+                return items, warnings
+
+            params: dict[str, str] = {
+                "verb": "ListRecords",
+                "metadataPrefix": "oai_dc",
+            }
+            if request.set_spec:
+                params["set"] = request.set_spec
+
             while len(items) < cap:
                 try:
-                    response = await client.get(request.base_url, params=params)
+                    response = await client.get(base_url, params=params)
                     response.raise_for_status()
                 except httpx.HTTPError as exc:
                     warnings.append(f"El repositorio no respondió: {exc}")
@@ -95,7 +107,63 @@ class OaiPmhHarvester:
                 # Con resumptionToken NO se reenvían los demás parámetros.
                 params = {"verb": "ListRecords", "resumptionToken": token}
 
+            # Enriquecer con el PDF descargable real (DSpace 7+ vía API REST).
+            if request.resolve_pdfs and "/server/oai" in base_url:
+                resolved = await self._resolve_pdfs(client, base_url, items)
+                if resolved:
+                    warnings.append(
+                        f"Se localizó el PDF descargable de {resolved} ítem(s) "
+                        f"vía la API de DSpace."
+                    )
+
         return items, warnings
+
+    async def _resolve_pdfs(
+        self, client: httpx.AsyncClient, base_url: str, items: list[ResourceItem]
+    ) -> int:
+        """Rellena `download_url` con el PDF real (DSpace REST), concurrentemente."""
+        pending = [
+            it for it in items if not it.download_url and it.landing_url
+        ]
+        if not pending:
+            return 0
+
+        resolver = DSpaceResolver(client, DSpaceResolver.root_from_oai(base_url))
+        semaphore = asyncio.Semaphore(6)
+
+        async def fill(item: ResourceItem) -> bool:
+            async with semaphore:
+                url = await resolver.resolve_pdf(item.landing_url or "")
+            if url:
+                item.download_url = url
+                item.file_type = FileType.PDF
+                return True
+            return False
+
+        outcomes = await asyncio.gather(*(fill(it) for it in pending))
+        return sum(1 for ok in outcomes if ok)
+
+    async def _resolve_endpoint(
+        self, client: httpx.AsyncClient, base_url: str, warnings: list[str]
+    ) -> str | None:
+        """Encuentra el endpoint OAI-PMH válido probando rutas habituales.
+
+        Muchos repositorios DSpace 7+ movieron OAI de `/oai/request` a
+        `/server/oai/request`; la ruta antigua devuelve 404. Probamos varias
+        variantes con el verbo `Identify` y nos quedamos con la primera viva.
+        """
+        resolved = await resolve_endpoint(client, base_url)
+        if resolved is not None:
+            if resolved != base_url:
+                logger.info("Endpoint OAI-PMH resuelto: %s", resolved)
+            return resolved
+
+        warnings.append(
+            "No se encontró un endpoint OAI-PMH válido. Probé: "
+            + ", ".join(candidate_endpoints(base_url))
+            + ". Para DSpace 7+ suele ser '<host>/server/oai/request'."
+        )
+        return None
 
     @staticmethod
     def _parse(xml_text: str) -> tuple[ET.Element | None, str | None]:
@@ -144,8 +212,10 @@ class OaiPmhHarvester:
             return None
 
         identifiers = values("identifier")
+        # Enlaces directos al archivo: por extensión (.pdf) o por patrón DSpace
+        # de descarga de bitstreams, que sirven el PDF sin extensión en la URL.
         download_url = next(
-            (u for u in identifiers if u.lower().split("?")[0].endswith(".pdf")),
+            (u for u in identifiers if self._looks_like_file(u)),
             None,
         )
         landing_url = next(
@@ -167,6 +237,17 @@ class OaiPmhHarvester:
             open_access=open_access,
             relevance=0.0,
         )
+
+    @staticmethod
+    def _looks_like_file(url: str) -> bool:
+        """¿La URL apunta a un archivo descargable directamente (no a una página)?"""
+        if not url.lower().startswith("http"):
+            return False
+        path = url.lower().split("?")[0]
+        if path.endswith((".pdf", ".doc", ".docx", ".ppt", ".pptx", ".epub")):
+            return True
+        # Patrón de descarga de bitstreams en DSpace (sirve el PDF directamente).
+        return "/bitstream/" in path or "/bitstreams/" in path
 
     @staticmethod
     def _is_open_access(rights: list[str]) -> bool:

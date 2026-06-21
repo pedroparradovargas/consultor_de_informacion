@@ -8,8 +8,22 @@ en el código.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _default_download_dir() -> str:
+    """Carpeta de descargas del usuario (Windows/macOS/Linux).
+
+    Por defecto guardamos los libros en la carpeta «Descargas» del sistema,
+    dentro de una subcarpeta propia para no mezclarlos con otros archivos.
+    Se puede sobreescribir con la variable de entorno DOWNLOAD_DIR.
+    """
+    downloads = Path.home() / "Downloads"
+    base = downloads if downloads.exists() else Path.home()
+    return str(base / "Consultor de Información")
 
 
 class Settings(BaseSettings):
@@ -55,11 +69,12 @@ class Settings(BaseSettings):
     max_query_length: int = 256
 
     # --- Descargas / cosecha (scraping responsable) ---
-    download_dir: str = "downloads"
+    # Por defecto, la carpeta «Descargas» del usuario (ver _default_download_dir).
+    download_dir: str = Field(default_factory=_default_download_dir)
     download_concurrency: int = 5  # descargas simultáneas (global)
     per_domain_delay_seconds: float = 1.0  # espera mínima entre hits al mismo host
     max_download_mb: int = 50  # tamaño máximo por archivo
-    max_download_urls: int = 50  # URLs por petición
+    max_download_urls: int = 200  # URLs por petición
     download_retries: int = 3  # reintentos con backoff exponencial
     respect_robots: bool = True  # respetar robots.txt (recomendado)
     max_harvest_records: int = 200  # tope de registros por cosecha OAI-PMH

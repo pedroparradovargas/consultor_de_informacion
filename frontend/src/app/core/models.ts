@@ -1,7 +1,7 @@
 /** Tipos compartidos que reflejan el contrato de la API. */
 
 export type FileType = 'pdf' | 'word' | 'presentation' | 'repository' | 'any';
-export type SourceName = 'openalex' | 'arxiv';
+export type SourceName = 'openalex' | 'arxiv' | 'internet_archive';
 
 export interface SearchQuery {
   query: string;
@@ -11,6 +11,8 @@ export interface SearchQuery {
   file_types: FileType[];
   sources: SourceName[];
   limit: number;
+  /** Verificar enlaces y descartar páginas caídas (404) o en mantenimiento. */
+  verify_links?: boolean;
 }
 
 export interface ResourceItem {
@@ -97,4 +99,5 @@ export interface DownloadProgressEvent {
   status?: DownloadStatus;
   url?: string;
   reason?: string | null;
+  download_dir?: string;
 }

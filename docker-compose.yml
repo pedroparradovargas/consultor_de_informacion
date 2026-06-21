@@ -7,6 +7,8 @@ services:
       # por lo que CORS no es necesario. Ajusta si expones el backend aparte.
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       OPENDOAR_API_KEY: ${OPENDOAR_API_KEY:-}
+      # En contenedor las descargas van al volumen montado.
+      DOWNLOAD_DIR: /app/downloads
     volumes:
       - downloads:/app/downloads
     restart: unless-stopped

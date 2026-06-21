@@ -12,8 +12,10 @@ import { SearchService } from '../core/search.service';
 
 interface DownloadProgress {
   completed: number;
+  downloaded: number;
   total: number;
   done: boolean;
+  dir?: string;
 }
 
 /** Panel de cosecha OAI-PMH y descarga responsable de PDFs abiertos. */
@@ -140,7 +142,7 @@ export class RepositoryPanelComponent {
     }
     this.error.set(null);
     this.downloading.set(true);
-    this.progress.set({ completed: 0, total: urls.length, done: false });
+    this.progress.set({ completed: 0, downloaded: 0, total: urls.length, done: false });
 
     this.service.createDownloadJob(urls).subscribe({
       next: (job) => this.listenProgress(job.job_id, job.total),
@@ -152,12 +154,25 @@ export class RepositoryPanelComponent {
   }
 
   private listenProgress(jobId: string, total: number): void {
+    let downloaded = 0;
     this.service.streamDownload(jobId).subscribe({
       next: (e: DownloadProgressEvent) => {
         if (e.event === 'progress') {
-          this.progress.set({ completed: e.completed ?? 0, total, done: false });
+          if (e.status === 'downloaded') downloaded += 1;
+          this.progress.set({
+            completed: e.completed ?? 0,
+            downloaded,
+            total,
+            done: false,
+          });
         } else if (e.event === 'done') {
-          this.progress.set({ completed: e.downloaded ?? 0, total, done: true });
+          this.progress.set({
+            completed: total,
+            downloaded: e.downloaded ?? 0,
+            total,
+            done: true,
+            dir: e.download_dir,
+          });
           this.downloading.set(false);
         }
       },
