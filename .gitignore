@@ -1,0 +1,22 @@
+# ---- Python / Backend ----
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.env
+.env.local
+
+# ---- Node / Angular / Frontend ----
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/out-tsc/
+npm-debug.log*
+
+# ---- Editores / SO ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

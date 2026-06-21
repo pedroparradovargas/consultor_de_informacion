@@ -1,0 +1,147 @@
+<div class="scanlines" aria-hidden="true"></div>
+<div class="grid-bg" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <h1 class="hero__title" data-text="CONSULTOR DE INFORMACIÓN">
+    CONSULTOR DE INFORMACIÓN
+  </h1>
+  <p class="hero__subtitle">
+    Motor de búsqueda OSINT de manuales, cartillas y recursos educativos en
+    <span class="accent">fuentes abiertas</span>
+  </p>
+</header>
+
+<main class="layout">
+  <!-- Panel de búsqueda -->
+  <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="panel__corner panel__corner--tl"></div>
+    <div class="panel__corner panel__corner--br"></div>
+
+    <label class="field field--full">
+      <span class="field__label">Temario / palabras clave</span>
+      <input
+        class="field__input"
+        type="text"
+        formControlName="query"
+        placeholder="Ej. cálculo diferencial, redes neuronales…"
+        autocomplete="off"
+      />
+      @if (form.controls['query'].touched && form.controls['query'].invalid) {
+        <small class="field__error">Escribe al menos 2 caracteres.</small>
+      }
+    </label>
+
+    <div class="field-row">
+      <label class="field">
+        <span class="field__label">Lapso · desde</span>
+        <input
+          class="field__input"
+          type="number"
+          formControlName="yearFrom"
+          [min]="1900"
+          [max]="currentYear"
+          placeholder="2018"
+        />
+      </label>
+      <label class="field">
+        <span class="field__label">Lapso · hasta</span>
+        <input
+          class="field__input"
+          type="number"
+          formControlName="yearTo"
+          [min]="1900"
+          [max]="currentYear"
+          [placeholder]="currentYear"
+        />
+      </label>
+      <label class="field">
+        <span class="field__label">Idioma</span>
+        <select class="field__input" formControlName="language">
+          @for (opt of languageOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <div class="field">
+      <span class="field__label">Tipo de archivo</span>
+      <div class="chips">
+        @for (opt of fileTypeOptions; track opt.value) {
+          <button
+            type="button"
+            class="chip"
+            [class.chip--active]="isFileTypeSelected(opt.value)"
+            (click)="toggleFileType(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field__label">Fuentes</span>
+      <div class="chips">
+        @for (opt of sourceOptions; track opt.value) {
+          <button
+            type="button"
+            class="chip chip--source"
+            [class.chip--active]="isSourceSelected(opt.value)"
+            (click)="toggleSource(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <button class="submit" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="submit__spinner" aria-hidden="true"></span> Rastreando…
+      } @else {
+        ⌖ Iniciar búsqueda
+      }
+    </button>
+
+    @if (error()) {
+      <p class="alert" role="alert">{{ error() }}</p>
+    }
+  </form>
+
+  <!-- Panel de resultados -->
+  <section class="results">
+    @if (response(); as res) {
+      <div class="results__meta">
+        <span class="results__count">{{ res.total }} resultados</span>
+        <span class="results__time">{{ res.took_ms }} ms</span>
+      </div>
+      @for (warning of res.warnings; track warning) {
+        <p class="alert alert--warn">⚠ {{ warning }}</p>
+      }
+      @if (results().length === 0) {
+        <div class="empty">
+          <p>Sin coincidencias. Ajusta el temario, el lapso o las fuentes.</p>
+        </div>
+      } @else {
+        <div class="results__grid">
+          @for (item of results(); track item.landing_url) {
+            <app-result-card [item]="item" />
+          }
+        </div>
+      }
+    } @else if (!loading()) {
+      <div class="empty empty--initial">
+        <p>
+          Define tu búsqueda y obtén recursos académicos abiertos listos para
+          descargar.
+        </p>
+      </div>
+    }
+  </section>
+</main>
+
+<footer class="footer">
+  <span>Consultor de Información · datos de fuentes abiertas (OpenAlex · arXiv)</span>
+</footer>

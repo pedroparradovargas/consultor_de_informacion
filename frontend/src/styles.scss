@@ -1,0 +1,85 @@
+/* ============================================================
+   Tema global · Cyberpunk hiperrealista
+   ============================================================ */
+
+:root {
+  /* Paleta neón */
+  --neon-cyan: #00f0ff;
+  --neon-magenta: #ff2bd6;
+  --neon-violet: #8a5bff;
+  --neon-lime: #aaff00;
+
+  /* Superficies */
+  --bg-deep: #050510;
+  --bg-panel: rgba(13, 16, 33, 0.72);
+  --bg-panel-solid: #0b0e20;
+  --stroke: rgba(0, 240, 255, 0.22);
+  --stroke-strong: rgba(0, 240, 255, 0.55);
+
+  /* Texto */
+  --text: #e9f7ff;
+  --text-dim: #8aa0b8;
+
+  /* Sombra/halo */
+  --glow-cyan: 0 0 18px rgba(0, 240, 255, 0.55);
+  --glow-magenta: 0 0 18px rgba(255, 43, 214, 0.55);
+
+  --radius: 14px;
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Rajdhani', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(138, 91, 255, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(255, 43, 214, 0.16), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08), transparent 60%),
+    var(--bg-deep);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--neon-magenta);
+  color: #000;
+}
+
+/* Scrollbar estilizada */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #07071a;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--neon-cyan), var(--neon-violet));
+  border-radius: 8px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: var(--font-body);
+}
